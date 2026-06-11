@@ -1,0 +1,21 @@
+services:
+  mongo:
+    image: mongo:latest
+    container_name: backend_practice_mongo
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  web:
+    build: .
+    container_name: backend_practice_web
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_DETAILS=mongodb://mongo:27017
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

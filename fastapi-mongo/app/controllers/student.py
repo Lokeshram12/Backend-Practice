@@ -1,0 +1,79 @@
+import os
+
+import motor.motor_asyncio
+from bson.objectid import ObjectId
+from bson.errors import InvalidId
+
+MONGO_DETAILS = os.getenv("MONGO_DETAILS", "mongodb://localhost:27017")
+
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+
+database = client.students
+
+student_collection = database.get_collection("students_collection")
+
+
+# Helper function to transform MongoDB documents
+def student_helper(student) -> dict:
+    return {
+        "id": str(student["_id"]),
+        "fullname": student["fullname"],
+        "email": student["email"],
+        "course_of_study": student["course_of_study"],
+        "year": student["year"],
+        "GPA": student["gpa"],
+    }
+
+
+# Retrieve all students present in the database
+async def retrieve_students():
+    students = []
+    async for student in student_collection.find():
+        students.append(student_helper(student))
+    return students
+
+
+# Add a new student into the database
+async def add_student(student_data: dict) -> dict:
+    student = await student_collection.insert_one(student_data)
+    new_student = await student_collection.find_one({"_id": student.inserted_id})
+    return student_helper(new_student)
+
+
+# Retrieve a student with a matching ID
+async def retrieve_student(id: str) -> dict:
+    try:
+        student = await student_collection.find_one({"_id": ObjectId(id)})
+        if student:
+            return student_helper(student)
+    except InvalidId:
+        return None
+
+
+# Update a student with a matching ID
+async def update_student(id: str, data: dict):
+    # Return false if an empty request body is sent.
+    if len(data) < 1:
+        return False
+    try:
+        student = await student_collection.find_one({"_id": ObjectId(id)})
+        if student:
+            updated_student = await student_collection.update_one(
+                {"_id": ObjectId(id)}, {"$set": data}
+            )
+            if updated_student:
+                return True
+            return False
+    except InvalidId:
+        return False
+
+
+# Delete a student from the database
+async def delete_student(id: str):
+    try:
+        student = await student_collection.find_one({"_id": ObjectId(id)})
+        if student:
+            await student_collection.delete_one({"_id": ObjectId(id)})
+            return True
+    except InvalidId:
+        return False
